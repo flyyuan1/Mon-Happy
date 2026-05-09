@@ -1,0 +1,32 @@
+
+# 薰衣草背景音乐说明
+
+## 如何添加音乐
+
+1. 下载您喜欢的薰衣草主题音乐（MP3格式）
+2. 将音乐文件重命名为 `lavender.mp3`
+3. 将 `lavender.mp3` 文件放在 `release(适应pc、phone、pad)` 文件夹的根目录下（与 index.html 同级）
+
+## 推荐的免费音乐资源
+
+以下是一些可以获取免费薰衣草主题音乐的网站：
+
+- **StockTune**: https://stocktune.com/free-songs/lavender （有免费的薰衣草主题音乐）
+- **YouTube Audio Library**: https://www.youtube.com/audiolibrary （搜索 "lavender" 或 "calm"）
+- **Free Music Archive**: https://freemusicarchive.org （搜索 "ambient" 或 "calm"）
+
+## 使用说明
+
+- 音乐按钮在页面左上角，显示为 🔊
+- 点击按钮可以播放/暂停音乐
+- 音乐会自动循环播放
+- 音量默认设置为 70%
+
+## 部署到 Vercel
+
+部署时确保：
+1. 保留完整的 `release(适应pc、phone、pad)` 文件夹
+2. 确保 `lavender.mp3` 文件在文件夹根目录下
+3. 可以删除其他版本的文件夹
+
+祝您母亲节快乐！🌸
