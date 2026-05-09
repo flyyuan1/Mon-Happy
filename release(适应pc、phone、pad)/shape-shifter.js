@@ -206,8 +206,8 @@ S.UI = (function () {
       firstAction = true,
       sequence = [],
       cmd = '#',
-      delay1 = 3000, // 默认值3000ms（适合手机）
-      delay2 = 5000; // 默认值5000ms（适合手机）
+      delay1 = 1200, // 手机端读秒节奏
+      delay2 = 1800; // 手机端语句/图标切换节奏
 
   function handleVisibilityChange() {
     if (!document.hidden && S.Shape && S.Shape.settleVisible) {
@@ -216,15 +216,8 @@ S.UI = (function () {
     }
   }
   
-  // 在performAction函数中添加屏幕尺寸判断
   function performAction(value) {
       var action, current;
-
-      // 屏幕尺寸判断逻辑
-      if (window.innerWidth > 500 && window.innerHeight > 500) {
-          delay1 = 1000; // 平板/电脑调整为1000ms
-          delay2 = 2000; // 平板/电脑调整为2000ms
-      }
 
       overlay.classList.remove('overlay--visible');
       sequence =
@@ -667,25 +660,14 @@ S.Dot.prototype = {
 
 
 S.ShapeBuilder = (function () {
-  var gap = 8, // 粒子取样间距，手机端会更密以保留中文字形
+  var gap = 5, // 手机端专用粒子取样间距
       shapeCanvas = document.createElement('canvas'),
       shapeContext = shapeCanvas.getContext('2d'),
       fontSize = 500,
       fontFamily = 'Avenir, Helvetica Neue, Helvetica, Arial, sans-serif';
 
   function fit() {
-    var shortSide = Math.min(window.innerWidth, window.innerHeight);
-
-    if (shortSide <= 480) {
-      gap = 4; // 手机端提高取样密度，避免中文笔画断裂
-    } else if (shortSide <= 768) {
-      gap = 6;
-    } else if (window.innerWidth > 500 && window.innerHeight > 500) {
-      gap = 13; // 在平板和电脑等大屏幕上，间距调整为13
-    } else {
-      gap = 8; // 在小屏幕上，间距恢复为8
-    }
-
+    gap = 5;
     shapeCanvas.width = Math.floor(window.innerWidth / gap) * gap;
     shapeCanvas.height = Math.floor(window.innerHeight / gap) * gap;
     shapeContext.fillStyle = 'red';
@@ -694,7 +676,11 @@ S.ShapeBuilder = (function () {
   }
 
   function getDotRadius() {
-    return Math.max(2.5, Math.min(5, gap * 0.65));
+    return 2.2;
+  }
+
+  function getMobileIconSize() {
+    return Math.floor(Math.min(shapeCanvas.width * 0.58, shapeCanvas.height * 0.28) / gap) * gap;
   }
 
   function processCanvas() {
@@ -754,12 +740,13 @@ S.ShapeBuilder = (function () {
     },
 
     imageFile: function (url, callback) {
-      var image = new Image(),
-          a = S.Drawing.getArea();
+      var image = new Image();
 
       image.onload = function () {
+        var iconSize = getMobileIconSize();
+
         shapeContext.clearRect(0, 0, shapeCanvas.width, shapeCanvas.height);
-        shapeContext.drawImage(this, 0, 0, a.h * 0.6, a.h * 0.6);
+        shapeContext.drawImage(this, 0, 0, iconSize, iconSize);
         callback(processCanvas());
       };
 
@@ -787,8 +774,8 @@ S.ShapeBuilder = (function () {
       setFontSize(fontSize);
       s = Math.min(
         fontSize,
-        (shapeCanvas.width / shapeContext.measureText(l).width) * 0.8 * fontSize,
-        (shapeCanvas.height / fontSize) * (isNumber(l) ? 1 : 0.45) * fontSize
+        (shapeCanvas.width / shapeContext.measureText(l).width) * 0.76 * fontSize,
+        (shapeCanvas.height / fontSize) * (isNumber(l) ? 0.46 : 0.18) * fontSize
       );
       setFontSize(s);
 
