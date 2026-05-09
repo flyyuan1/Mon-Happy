@@ -36,8 +36,13 @@ var S = {
     var volumeBtn = document.getElementById('volumeBtn');
     var isPlaying = false;
     
+    function updateVolumeButton() {
+      volumeBtn.classList.toggle('is-playing', isPlaying);
+      volumeBtn.setAttribute('aria-label', isPlaying ? 'Pause music' : 'Play music');
+    }
+    
     // 初始化按钮显示为暂停状态
-    volumeBtn.textContent = '🔇';
+    updateVolumeButton();
     
     // 检查音频文件是否加载成功
     audio.addEventListener('error', function(e) {
@@ -53,14 +58,14 @@ var S = {
     // 播放成功回调
     audio.addEventListener('play', function() {
       isPlaying = true;
-      volumeBtn.textContent = '🔊';
+      updateVolumeButton();
       console.log('音频开始播放');
     });
     
     // 暂停回调
     audio.addEventListener('pause', function() {
       isPlaying = false;
-      volumeBtn.textContent = '🔇';
+      updateVolumeButton();
       console.log('音频已暂停');
     });
     
@@ -203,6 +208,13 @@ S.UI = (function () {
       cmd = '#',
       delay1 = 3000, // 默认值3000ms（适合手机）
       delay2 = 5000; // 默认值5000ms（适合手机）
+
+  function handleVisibilityChange() {
+    if (!document.hidden && S.Shape && S.Shape.settleVisible) {
+      S.Drawing.adjustCanvas();
+      S.Shape.settleVisible();
+    }
+  }
   
   // 在performAction函数中添加屏幕尺寸判断
   function performAction(value) {
@@ -334,6 +346,10 @@ S.UI = (function () {
       (reverse && currentAction > 0)
     ) {
       interval = setInterval(function () {
+        if (document.hidden) {
+          return;
+        }
+
         currentAction = reverse ? currentAction - 1 : currentAction + 1;
         fn(currentAction);
 
@@ -385,10 +401,13 @@ S.UI = (function () {
     window.addEventListener('resize', function () {
       clearTimeout(resizeTimer);
       resizeTimer = setTimeout(function () {
-        S.Shape.shuffleIdle();
+        S.Shape.settleVisible();
         reset(true);
       }, 500);
     });
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleVisibilityChange);
 
     input.addEventListener('input', checkInputWidth);
     input.addEventListener('change', checkInputWidth);
@@ -510,6 +529,7 @@ S.Dot = function (x, y) {
   });
 
   this.e = 0.07;
+  this.maxStep = 12;
   this.s = true;
 
   this.c = new S.Color(255, 192, 203, this.p.a);
@@ -539,7 +559,7 @@ S.Dot.prototype = {
         dx = details[0],
         dy = details[1],
         d = details[2],
-        e = this.e * d;
+        e = Math.min(this.e * d, this.maxStep);
 
     if (this.p.h === -1) {
       this.p.x = n.x;
@@ -603,9 +623,39 @@ S.Dot.prototype = {
   },
 
   move: function (p, avoidStatic) {
+    if (S.Shape && S.Shape.clampPoint) {
+      p = S.Shape.clampPoint(p);
+    }
+
     if (!avoidStatic || (avoidStatic && this.distanceTo(p) > 1)) {
       this.q.push(p);
     }
+  },
+
+  clearQueue: function () {
+    this.q = [];
+  },
+
+  settle: function () {
+    this.clearQueue();
+
+    if (this.t && isFinite(this.t.x) && isFinite(this.t.y)) {
+      this.p.x = this.t.x;
+      this.p.y = this.t.y;
+    }
+  },
+
+  snapTo: function (p) {
+    this.clearQueue();
+    this.t.x = p.x;
+    this.t.y = p.y;
+    this.t.z = typeof p.z === 'number' ? p.z : 5;
+    this.t.a = typeof p.a === 'number' ? p.a : 1;
+    this.p.x = this.t.x;
+    this.p.y = this.t.y;
+    this.p.z = this.t.z;
+    this.p.a = this.t.a;
+    this.p.h = 0;
   },
 
   render: function () {
@@ -617,23 +667,34 @@ S.Dot.prototype = {
 
 
 S.ShapeBuilder = (function () {
-  var gap = 8, // 默认间距设置为8，以适应手机屏幕
+  var gap = 8, // 粒子取样间距，手机端会更密以保留中文字形
       shapeCanvas = document.createElement('canvas'),
       shapeContext = shapeCanvas.getContext('2d'),
       fontSize = 500,
       fontFamily = 'Avenir, Helvetica Neue, Helvetica, Arial, sans-serif';
 
   function fit() {
-    if (window.innerWidth > 500 && window.innerHeight > 500) {
+    var shortSide = Math.min(window.innerWidth, window.innerHeight);
+
+    if (shortSide <= 480) {
+      gap = 4; // 手机端提高取样密度，避免中文笔画断裂
+    } else if (shortSide <= 768) {
+      gap = 6;
+    } else if (window.innerWidth > 500 && window.innerHeight > 500) {
       gap = 13; // 在平板和电脑等大屏幕上，间距调整为13
     } else {
       gap = 8; // 在小屏幕上，间距恢复为8
     }
+
     shapeCanvas.width = Math.floor(window.innerWidth / gap) * gap;
     shapeCanvas.height = Math.floor(window.innerHeight / gap) * gap;
     shapeContext.fillStyle = 'red';
     shapeContext.textBaseline = 'middle';
     shapeContext.textAlign = 'center';
+  }
+
+  function getDotRadius() {
+    return Math.max(2.5, Math.min(5, gap * 0.65));
   }
 
   function processCanvas() {
@@ -675,7 +736,7 @@ S.ShapeBuilder = (function () {
       }
     }
 
-    return { dots: dots, w: w + fx, h: h + fy };
+    return { dots: dots, w: w + fx, h: h + fy, r: getDotRadius() };
   }
 
   function setFontSize(s) {
@@ -753,7 +814,7 @@ S.ShapeBuilder = (function () {
         }
       }
 
-      return { dots: dots, w: width, h: height };
+      return { dots: dots, w: width, h: height, r: getDotRadius() };
     }
   };
 }());
@@ -765,7 +826,8 @@ S.Shape = (function () {
       width = 0,
       height = 0,
       cx = 0,
-      cy = 0;
+      cy = 0,
+      stableTargets = [];
 
   function compensate() {
     var a = S.Drawing.getArea();
@@ -774,16 +836,46 @@ S.Shape = (function () {
     cy = a.h / 2 - height / 2;
   }
 
+  function clampPoint(p, padding) {
+    var a = S.Drawing.getArea(),
+        pad = padding || 30;
+
+    if (typeof p.x === 'number') {
+      p.x = Math.max(-pad, Math.min(a.w + pad, p.x));
+    }
+
+    if (typeof p.y === 'number') {
+      p.y = Math.max(-pad, Math.min(a.h + pad, p.y));
+    }
+
+    return p;
+  }
+
   return {
     shuffleIdle: function () {
-      var a = S.Drawing.getArea();
-
       for (var d = 0; d < dots.length; d++) {
         if (!dots[d].s) {
-          dots[d].move({
-            x: Math.random() * a.w,
-            y: Math.random() * a.h,
-          });
+          dots[d].move(clampPoint(new S.Point({
+            x: dots[d].p.x + Math.random() * 120 - 60,
+            y: dots[d].p.y + Math.random() * 120 - 60,
+          })));
+        }
+      }
+    },
+
+    clampPoint: clampPoint,
+
+    settleVisible: function () {
+      for (var d = 0; d < dots.length; d++) {
+        if (stableTargets[d]) {
+          dots[d].snapTo(stableTargets[d]);
+        } else {
+          dots[d].settle();
+          dots[d].p = clampPoint(dots[d].p);
+          dots[d].t.x = dots[d].p.x;
+          dots[d].t.y = dots[d].p.y;
+          dots[d].t.z = Math.min(dots[d].t.z || dots[d].p.z || 1, 5);
+          dots[d].p.z = dots[d].t.z;
         }
       }
     },
@@ -792,12 +884,14 @@ S.Shape = (function () {
       var size,
           a = S.Drawing.getArea(),
           d = 0,
-          i = 0;
+          i = 0,
+          targetPoint;
 
       width = n.w;
       height = n.h;
 
       compensate();
+      stableTargets = [];
 
       if (n.dots.length > dots.length) {
         size = n.dots.length - dots.length;
@@ -810,6 +904,7 @@ S.Shape = (function () {
 
       while (n.dots.length > 0) {
         i = Math.floor(Math.random() * n.dots.length);
+        dots[d].clearQueue();
         dots[d].e = fast ? 0.25 : dots[d].s ? 0.14 : 0.11;
 
         if (dots[d].s) {
@@ -830,14 +925,16 @@ S.Shape = (function () {
         }
 
         dots[d].s = true;
+        targetPoint = clampPoint(new S.Point({
+          x: n.dots[i].x + cx,
+          y: n.dots[i].y + cy,
+          a: 1,
+          z: n.r || 5,
+          h: 0,
+        }));
+        stableTargets[d] = targetPoint;
         dots[d].move(
-          new S.Point({
-            x: n.dots[i].x + cx,
-            y: n.dots[i].y + cy,
-            a: 1,
-            z: 5,
-            h: 0,
-          })
+          targetPoint
         );
 
         n.dots = n.dots.slice(0, i).concat(n.dots.slice(i + 1));
@@ -846,6 +943,7 @@ S.Shape = (function () {
 
       for (i = d; i < dots.length; i++) {
         if (dots[i].s) {
+          dots[i].clearQueue();
           dots[i].move(
             new S.Point({
               z: Math.random() * 20 + 10,
@@ -857,13 +955,13 @@ S.Shape = (function () {
           dots[i].s = false;
           dots[i].e = 0.04;
           dots[i].move(
-            new S.Point({
-              x: Math.random() * a.w,
-              y: Math.random() * a.h,
+            clampPoint(new S.Point({
+              x: dots[i].p.x + Math.random() * 90 - 45,
+              y: dots[i].p.y + Math.random() * 90 - 45,
               a: 0.3, //.4
               z: Math.random() * 4,
               h: 0,
-            })
+            }))
           );
         }
       }

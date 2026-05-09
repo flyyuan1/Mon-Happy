@@ -20,7 +20,14 @@
     
     <!-- 音量控制按钮 -->
     <div class="volume-control">
-        <button id="volumeBtn" class="volume-btn">🔊</button>
+        <button id="volumeBtn" class="volume-btn" type="button" aria-label="Play music">
+          <span class="volume-icon" aria-hidden="true">
+            <span class="volume-icon__body"></span>
+            <span class="volume-icon__wave volume-icon__wave--inner"></span>
+            <span class="volume-icon__wave volume-icon__wave--outer"></span>
+            <span class="volume-icon__slash"></span>
+          </span>
+        </button>
     </div>
 
     <div class="ui">
