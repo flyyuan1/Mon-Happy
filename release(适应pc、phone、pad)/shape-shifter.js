@@ -206,8 +206,8 @@ S.UI = (function () {
       firstAction = true,
       sequence = [],
       cmd = '#',
-      delay1 = 1300, // 手机端读秒节奏
-      delay2 = 1900; // 手机端语句/图标切换节奏
+      delay1 = 1500, // 手机端读秒节奏
+      delay2 = 2000; // 手机端语句/图标切换节奏
 
   function handleVisibilityChange() {
     if (!document.hidden && S.Shape && S.Shape.settleVisible) {
